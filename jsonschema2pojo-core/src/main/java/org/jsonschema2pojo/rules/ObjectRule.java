@@ -72,6 +72,16 @@ public class ObjectRule implements Rule<JPackage, JType> {
     private final RuleFactory ruleFactory;
     private final ParcelableHelper parcelableHelper;
 
+    private static class ObjectNodeWithSuperType {
+        private final JsonNode objectNode;
+        private final JType superType;
+
+        private ObjectNodeWithSuperType(JsonNode objectNode, JType superType) {
+            this.objectNode = objectNode;
+            this.superType = superType;
+        }
+    }
+
     protected ObjectRule(RuleFactory ruleFactory, ParcelableHelper parcelableHelper) {
         this.ruleFactory = ruleFactory;
         this.parcelableHelper = parcelableHelper;
@@ -92,7 +102,9 @@ public class ObjectRule implements Rule<JPackage, JType> {
     @Override
     public JType apply(String nodeName, JsonNode node, JPackage _package, Schema schema) {
 
-        JType superType = getSuperType(nodeName, node, _package, schema);
+        ObjectNodeWithSuperType objectNodeWithSuperType = getObjectDefinitionNodeWithSuperType(nodeName, node, _package, schema);
+        node = objectNodeWithSuperType.objectNode;
+        JType superType = objectNodeWithSuperType.superType;
 
         if (superType.isPrimitive() || isFinal(superType)) {
             return superType;
@@ -276,7 +288,8 @@ public class ObjectRule implements Rule<JPackage, JType> {
         }
     }
 
-    private JType getSuperType(String nodeName, JsonNode node, JPackage jPackage, Schema schema) {
+    private ObjectNodeWithSuperType getObjectDefinitionNodeWithSuperType(String nodeName, JsonNode node, JPackage jPackage, Schema schema) {
+        
         if (node.has("extends") && node.has("extendsJavaClass")) {
             throw new IllegalStateException("'extends' and 'extendsJavaClass' defined simultaneously");
         }
@@ -293,9 +306,26 @@ public class ObjectRule implements Rule<JPackage, JType> {
             superType = ruleFactory.getSchemaRule().apply(nodeName + "Parent", node.get("extends"), jPackage, superTypeSchema);
         } else if (node.has("extendsJavaClass")) {
             superType = resolveType(jPackage, node.get("extendsJavaClass").asText());
+        } else if (node.has("allOf")) {
+            JsonNode allOfNode = node.get("allOf");
+            if (allOfNode.has(1) && allOfNode.size() == 2) {
+                JsonNode firstNode = allOfNode.get(0);
+                JsonNode secondNode = allOfNode.get(1);
+                if (firstNode.has("$ref") && !secondNode.has("$ref")) {
+                    String path;
+                    if (schema.getId().getFragment() == null) {
+                        path = "#allOf";
+                    } else {
+                        path = "#" + schema.getId().getFragment() + "/allOf/0";
+                    }
+                    Schema superTypeSchema = ruleFactory.getSchemaStore().create(schema, path);
+                    superType = ruleFactory.getSchemaRule().apply(nodeName + "Parent", firstNode, jPackage, superTypeSchema);
+                    node = secondNode;
+                }
+            }
         }
 
-        return superType;
+        return new ObjectNodeWithSuperType(node, superType);
     }
 
     private void addGeneratedAnnotation(JDefinedClass jclass) {
