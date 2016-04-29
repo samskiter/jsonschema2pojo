@@ -366,6 +366,28 @@ public class ObjectRule implements Rule<JPackage, JType> {
             return new SchemaClassInfo(schema, schema, superSchema, nodeName);
         } else if (node.has("extendsJavaClass")) {
             superType = resolveType(jPackage, node.get("extendsJavaClass").asText());
+        } else if (node.has("allOf")) {
+            JsonNode allOfNode = node.get("allOf");
+            if (allOfNode.has(1) && allOfNode.size() == 2) {
+                JsonNode firstNode = allOfNode.get(0);
+                JsonNode secondNode = allOfNode.get(1);
+                if (firstNode.has("$ref") && !secondNode.has("$ref")) {
+                    String pathToAllOfArray;
+                    if (schema.getId().getFragment() == null) {
+                        pathToAllOfArray = "#allOf";
+                    } else {
+                        pathToAllOfArray = "#" + schema.getId().getFragment() + "/allOf";
+                    }
+                    Schema superSchema = ruleFactory.getSchemaStore().create(schema, pathToAllOfArray + "/0");
+
+                    //schema rule follows refs, so we do the same in order to get hold of a super schema that has a type associated, schemarule really ought to return this information
+                    ruleFactory.getSchemaRule().apply(parentNodeName, firstNode, jPackage, superSchema);
+                    superSchema = resolveSchemaRefsRecursive(superSchema);
+
+                    //Make a temporary node to represent the class definition, separate from its inheritance
+                    return new SchemaClassInfo(schema, ruleFactory.getSchemaStore().create(schema, pathToAllOfArray + "/1"), superSchema, nodeName);
+                }
+            }
         }
         return new SchemaClassInfo(schema, schema, superType, nodeName);
     }
