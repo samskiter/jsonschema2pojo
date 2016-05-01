@@ -5,7 +5,7 @@
     <parent>
         <artifactId>jsonschema2pojo</artifactId>
         <groupId>com.github.samskiter.jsonschema2pojo</groupId>
-        <version>0.4.23-SNAPSHOT</version>
+        <version>0.4.23-fork.1-SNAPSHOT</version>
     </parent>
 
     <artifactId>jsonschema2pojo-core</artifactId>
