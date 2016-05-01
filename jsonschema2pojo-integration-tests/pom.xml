@@ -4,7 +4,7 @@
 
     <parent>
         <artifactId>jsonschema2pojo</artifactId>
-        <groupId>org.jsonschema2pojo</groupId>
+        <groupId>com.github.samskiter.jsonschema2pojo</groupId>
         <version>0.4.23-SNAPSHOT</version>
     </parent>
 
@@ -97,13 +97,13 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.jsonschema2pojo</groupId>
+            <groupId>com.github.samskiter.jsonschema2pojo</groupId>
             <artifactId>jsonschema2pojo-maven-plugin</artifactId>
             <version>${project.version}</version>
             <type>maven-plugin</type>
         </dependency>
         <dependency>
-            <groupId>org.jsonschema2pojo</groupId>
+            <groupId>com.github.samskiter.jsonschema2pojo</groupId>
             <artifactId>jsonschema2pojo-ant</artifactId>
             <version>${project.version}</version>
         </dependency>
