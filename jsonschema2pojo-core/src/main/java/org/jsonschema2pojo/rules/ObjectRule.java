@@ -414,6 +414,17 @@ public class ObjectRule implements Rule<JPackage, JType> {
         JBlock constructorBody = fieldsConstructor.body();
         JInvocation superInvocation = constructorBody.invoke("super");
 
+        JMethod copyConstructor = jclass.constructor(JMod.PUBLIC);
+        JBlock copyConstructorBody = copyConstructor.body();
+        copyConstructor.javadoc().addParam("other");
+        JVar objectToCopyParam = copyConstructor.param(jclass, "other");
+        if (combinedSuperProperties.size() > 0)
+        {
+            //call super copy constructor
+            JInvocation superCopyInvocation = copyConstructorBody.invoke("super");
+            superCopyInvocation.arg(objectToCopyParam);
+        }
+
         Map<String, JFieldVar> fields = jclass.fields();
 
         for (String property : classProperties) {
@@ -426,6 +437,8 @@ public class ObjectRule implements Rule<JPackage, JType> {
             fieldsConstructor.javadoc().addParam(property);
             JVar param = fieldsConstructor.param(field.type(), field.name());
             constructorBody.assign(JExpr._this().ref(field), param);
+
+            copyConstructorBody.assign(JExpr._this().ref(field), objectToCopyParam.ref(field));
         }
 
         List<JType> superConstructorTypes = new ArrayList<JType>();
