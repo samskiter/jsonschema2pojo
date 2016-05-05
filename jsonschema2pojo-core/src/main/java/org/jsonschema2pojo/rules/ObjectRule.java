@@ -438,16 +438,17 @@ public class ObjectRule implements Rule<JPackage, JType> {
             JVar param = fieldsConstructor.param(field.type(), field.name());
             constructorBody.assign(JExpr._this().ref(field), param);
 
-            //Attempt to use copy constructor (if it exists!)
+            
             boolean fieldAssigned = false;
 
+            //Attempt to use copy constructor for field (if it exists!)
             JDefinedClass definedFieldClass = definedClassOrNullFromType(field.type());
             if (definedFieldClass != null)
             {
                 JMethod fieldCopyConstructor = definedFieldClass.getConstructor(new JType[]{definedFieldClass});
                 if (fieldCopyConstructor != null)
                 {
-                    JInvocation copyFieldInvocation = JExpr.invoke(fieldCopyConstructor);
+                    JInvocation copyFieldInvocation = JExpr._new(definedFieldClass);
                     copyFieldInvocation.arg(objectToCopyParam.ref(field));
                     copyConstructorBody.assign(JExpr._this().ref(field), copyFieldInvocation);
                     fieldAssigned = true;
