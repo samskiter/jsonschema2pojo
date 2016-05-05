@@ -476,6 +476,17 @@ public class ObjectRule implements Rule<JPackage, JType> {
         JBlock constructorBody = fieldsConstructor.body();
         JInvocation superInvocation = constructorBody.invoke("super");
 
+        JMethod copyConstructor = jclass.constructor(JMod.PUBLIC);
+        JBlock copyConstructorBody = copyConstructor.body();
+        copyConstructor.javadoc().addParam("other");
+        JVar objectToCopyParam = copyConstructor.param(jclass, "other");
+        if (combinedSuperProperties.size() > 0)
+        {
+            //call super copy constructor
+            JInvocation superCopyInvocation = copyConstructorBody.invoke("super");
+            superCopyInvocation.arg(objectToCopyParam);
+        }
+
         Map<String, JFieldVar> fields = jclass.fields();
 
         for (String property : classProperties) {
@@ -488,6 +499,29 @@ public class ObjectRule implements Rule<JPackage, JType> {
             fieldsConstructor.javadoc().addParam(property);
             JVar param = fieldsConstructor.param(field.type(), field.name());
             constructorBody.assign(JExpr._this().ref(field), param);
+
+            
+            boolean fieldAssigned = false;
+
+            //Attempt to use copy constructor for field (if it exists!)
+            JDefinedClass definedFieldClass = definedClassOrNullFromType(field.type());
+            if (definedFieldClass != null)
+            {
+                JMethod fieldCopyConstructor = definedFieldClass.getConstructor(new JType[]{definedFieldClass});
+                if (fieldCopyConstructor != null)
+                {
+                    JInvocation copyFieldInvocation = JExpr._new(definedFieldClass);
+                    copyFieldInvocation.arg(objectToCopyParam.ref(field));
+                    copyConstructorBody.assign(JExpr._this().ref(field), copyFieldInvocation);
+                    fieldAssigned = true;
+                }
+            }
+
+            if (!fieldAssigned)
+            {
+                //just assign
+                copyConstructorBody.assign(JExpr._this().ref(field), objectToCopyParam.ref(field));
+            }
         }
 
         List<JType> superConstructorTypes = new ArrayList<JType>();
@@ -511,15 +545,27 @@ public class ObjectRule implements Rule<JPackage, JType> {
         }
     }
 
+    private static JDefinedClass definedClassOrNullFromType(JType type)
+    {
+        if (type == null || type.isPrimitive())
+        {
+            return null;
+        }
+        JClass fieldClass = type.boxify();
+        JPackage jPackage = fieldClass._package();
+        return jPackage._getClass(fieldClass.name());
+    }
+
     /**
      * This is recursive with searchClassAndSuperClassesForField
      */
     private JFieldVar searchSuperClassesForField(String property, JDefinedClass jclass) {
         JClass superClass = jclass._extends();
-        if (superClass == null || !(superClass instanceof JDefinedClass)) {
+        JDefinedClass definedSuperClass = definedClassOrNullFromType(superClass);
+        if (definedSuperClass == null) {
             return null;
         }
-        return searchClassAndSuperClassesForField(property, (JDefinedClass)superClass);
+        return searchClassAndSuperClassesForField(property, definedSuperClass);
     }
 
     private JFieldVar searchClassAndSuperClassesForField(String property, JDefinedClass jclass) {
