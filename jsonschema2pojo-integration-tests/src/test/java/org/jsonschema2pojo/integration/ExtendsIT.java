@@ -204,7 +204,6 @@ public class ExtendsIT {
         checkThreeArgInstanceProperties(typeCopy, type, supertype, superSupertype, 5, "String2", "String3");
     }
 
-
     @Test
     @SuppressWarnings("rawtypes")
     public void copiedObjectDoesNotMutateCopiedProperties() throws Exception {
@@ -252,6 +251,52 @@ public class ExtendsIT {
         assertThat(parentProp, is(equalTo(string2)));
     }
 
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void copiedObjectDoesNotMutateCopiedObjects() throws Exception {
+        ClassLoader resultsClassLoader = schemaRule.generateAndCompile("/schema/extends/extendsSchemaWithinDefinitions.json", "com.example", config("includeConstructors", true));
+
+        Class containerType = resultsClassLoader.loadClass("com.example.ExtendsSchemaWithinDefinitions");
+        Field containerField = containerType.getDeclaredField("child");
+        containerField.setAccessible(true);
+
+        Class subtype = resultsClassLoader.loadClass("com.example.Child");
+        Field childField = subtype.getDeclaredField("propertyOfChild");
+        childField.setAccessible(true);
+
+        Class supertype = resultsClassLoader.loadClass("com.example.ChildParent");
+        Field parentField = supertype.getDeclaredField("propertyOfParent");
+        parentField.setAccessible(true);
+
+        Object childInstance = subtype.getConstructor(String.class, String.class).newInstance("String1", "String2");
+
+        Object containerInstance = containerType.getConstructor(subtype).newInstance(childInstance);
+        Object containerCopy = containerType.getConstructor(containerType).newInstance(containerInstance);
+
+        Object childCopy = containerField.get(containerCopy);
+
+        assertThat(childCopy, is(equalTo(childInstance)));
+        assertNotSame(childCopy, childInstance);
+
+        assertEquals(childField.get(childCopy), "String1");
+        assertEquals(childField.get(childInstance), "String1");
+        assertEquals(parentField.get(childCopy), "String2");
+        assertEquals(parentField.get(childInstance), "String2");
+
+        childField.set(childCopy, "String3");
+        assertThat(childCopy, is(not(equalTo(childInstance))));
+        assertEquals(childField.get(childCopy), "String3");
+        assertEquals(childField.get(childInstance), "String1");
+        assertEquals(parentField.get(childCopy), "String2");
+        assertEquals(parentField.get(childInstance), "String2");
+
+        parentField.set(childInstance, "String4");
+        assertThat(childCopy, is(not(equalTo(childInstance))));
+        assertEquals(childField.get(childCopy), "String3");
+        assertEquals(childField.get(childInstance), "String1");
+        assertEquals(parentField.get(childCopy), "String2");
+        assertEquals(parentField.get(childInstance), "String4");
+    }
 
     @Test
     @SuppressWarnings("rawtypes")
