@@ -438,7 +438,27 @@ public class ObjectRule implements Rule<JPackage, JType> {
             JVar param = fieldsConstructor.param(field.type(), field.name());
             constructorBody.assign(JExpr._this().ref(field), param);
 
-            copyConstructorBody.assign(JExpr._this().ref(field), objectToCopyParam.ref(field));
+            //Attempt to use copy constructor (if it exists!)
+            boolean fieldAssigned = false;
+
+            JDefinedClass definedFieldClass = definedClassOrNullFromType(field.type());
+            if (definedFieldClass != null)
+            {
+                JMethod fieldCopyConstructor = definedFieldClass.getConstructor(new JType[]{definedFieldClass});
+                if (fieldCopyConstructor != null)
+                {
+                    JInvocation copyFieldInvocation = JExpr.invoke(fieldCopyConstructor);
+                    copyFieldInvocation.arg(objectToCopyParam.ref(field));
+                    copyConstructorBody.assign(JExpr._this().ref(field), copyFieldInvocation);
+                    fieldAssigned = true;
+                }
+            }
+
+            if (!fieldAssigned)
+            {
+                //just assign
+                copyConstructorBody.assign(JExpr._this().ref(field), objectToCopyParam.ref(field));
+            }
         }
 
         List<JType> superConstructorTypes = new ArrayList<JType>();
